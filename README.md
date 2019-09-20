@@ -1,8 +1,8 @@
-# lab-07-back-end
+# lab-09-back-end
 
 # Project Name
 
-**Author**: Karina Chen, Elle Young, Corey Marchand
+**Author**: Karina Chen, Jonathan Kimball, Zerek Cover
 **Version**: 1.0.0 (increment the patch/fix version number if you make more commits past your first submission)
 
 ## Overview
@@ -25,49 +25,12 @@ In this app, we used JavaScript, Express, cors, and dotenv. Express is the libra
 <!-- Give credit (and a link) to other people or resources that helped you build this application. -->
 -->
 
+Number and name of feature: ________________________________
 
-Number and name of feature: #1 Repository Set Up
+Estimate of time needed to complete: _____
 
-Estimate of time needed to complete: 1 hour
+Start time: _____
 
-Start time: 9:40 AM
+Finish time: _____
 
-Finish time: 11:00 AM
-
-Actual time needed to complete: 1 hour 20 minutes
-
-
-
-Number and name of feature: #2 Locations
-
-Estimate of time needed to complete: 1 hour
-
-Start time: 11:00 AM
-
-Finish time: 11:25 AM
-
-Actual time needed to complete: 25 minutes
-
-
-
-Number and name of feature: #3 Weather
-
-Estimate of time needed to complete: 1 hour
-
-Start time: 11:30 AM
-
-Finish time: 12:40 PM
-
-Actual time needed to complete: 1 hour 10 minutes
-
-
-
-Number and name of feature: #4 Errors
-
-Estimate of time needed to complete: 15 minutes
-
-Start time: 1:25 PM
-
-Finish time: 
-
-Actual time needed to complete: 
+Actual time needed to complete: _____
