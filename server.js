@@ -1,5 +1,6 @@
 'use strict';
-//server
+
+// ================= Server =================
 const express = require('express');
 const cors = require('cors');
 const pg = require('pg');
@@ -12,10 +13,11 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000
 
+// ================= Connect with Database =================
 const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
 
-// constructor funcitons -------------------------------------------------------------------------------
+// ================= Constructor Funcitons =================
 function Location(searchQuery, formatted_address, lat, long) {
   this.search_query = searchQuery;
   this.formatted_address = formatted_address;
@@ -35,7 +37,8 @@ function Event(eventBriteStuff) {
   this.summary = eventBriteStuff.summary;
 }
 
-// ======== Get Data From APIs ===================
+// ================= Get Data From APIs =================
+// ================= Location =================
 app.get('/location', (request, response) => {
   let searchQuery = request.query.data;
   let geocodeurl = `https://maps.googleapis.com/maps/api/geocode/json?address=${searchQuery}&key=${process.env.GEOCODE_API_KEY}`;
@@ -58,6 +61,7 @@ app.get('/location', (request, response) => {
     });
 });
 
+// ================= Weather =================
 app.get('/weather', (request, response) => {
   let locationDataObj = request.query.data;
   let latitude = locationDataObj.latitude;
@@ -76,6 +80,7 @@ app.get('/weather', (request, response) => {
     });
 });
 
+// ================= EventBrite =================
 app.get('/events', (request, response) => {
   let locationObj = request.query.data;
   const eventUrl = `http://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.address=${locationObj.formatted_address}`;
@@ -91,6 +96,7 @@ app.get('/events', (request, response) => {
     });
 });
 
+// ================= Error Handler =================
 function errorHandler(error, request, response){
   console.error(error);
   response.status(500).send('Something went wrong');
