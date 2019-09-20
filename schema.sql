@@ -11,3 +11,13 @@ CREATE TABLE locations (
     latitude VARCHAR(255),
     longitude VARCHAR(255)
 );
+
+
+DROP TABLE IF EXISTS weather;
+
+CREATE TABLE weather(
+    id SERIAL PRIMARY KEY,
+    search_query VARCHAR(255),
+    forecast_summary VARCHAR(255),
+    forecast_time VARCHAR(255)
+)
