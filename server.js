@@ -26,9 +26,9 @@ client.connect()
  */
 
 app.get('/location', routeLocation);
-app.get('/weather', getWeather);
-app.get('/events', getEvents);
-app.use('*', wildcardRouter);
+// app.get('/weather', getWeather);
+// app.get('/events', getEvents);
+// app.use('*', wildcardRouter);
 
 /**
  * Routers
@@ -37,11 +37,12 @@ app.use('*', wildcardRouter);
 function routeLocation(request, response) {
   let queryStr = request.query.data;
 
-  const location = locationFromDb(queryStr);
-  if (!location) {
-    location = newLocation(queryStr);
-  }
-  response.status(200).send(location);
+  locationFromDb(queryStr, response);
+//   if (!location) {
+//     location = newLocation(queryStr);
+//   }
+  // response.status(200).send(location);
+
 }
 
 function locationFromDb(queryStr, response) {
@@ -54,17 +55,25 @@ function locationFromDb(queryStr, response) {
     .query(sql, values)
     .then(pgResults => {
 
-      console.log('===========================');
-      console.log('Row Count', pgResults.rowCount);
-      if (pgResults.rowCount !== 0) {
-        console.log('first row:', pgResults.row[0]);
-      };
-
+      // console.log('===========================');
+      // console.log('Row Count', pgResults.rowCount);
+      // if (pgResults.rowCount !== 0) {
+      //   console.log('first row:', pgResults.row[0]);
+      // };
       if (pgResults.rowCount === 0) {
-        return;
+        console.log('new search')
+        newLocation(queryStr, response)
       } else {
-        const row = pgResults.row[0];
-        return new Location(row.search_query, row.formatted_query, row.latitude row.longitude);
+        console.log('already exists')
+        const row = pgResults.rows[0];
+        //fill in new Location instantiation from database query, then send to front end
+        const location = new Location(row.searchQuery, row.formatted_query, row.latitude, row.longitude)
+        response.send(location)
+
+
+        // return new Location(queryStr, row.formatted_query, row.latitude, row.longitude);
+
+        // return new Location(row.search_query, row.formatted_query, row.latitude, row.longitude);
       }
 
     })
@@ -75,25 +84,30 @@ function newLocation(searchQuery, response) {
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${searchQuery}&key=${process.env.GEOCODE_API_KEY}`;
 
   superagent
-    .get(url)
-    .then(result => {
+    .get(url).then(result => {
       const locationData = result.body.results[0];
-      const location = new Location(searchQuery, locationData);
+      
+      const formatted_address = locationData.formatted_address;
+      const lat = locationData.geometry.location.lat;
+      const long = locationData.geometry.location.lng;
+
+
+      const location = new Location(searchQuery, formatted_address, lat, long);
+
 
       const sql = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4);';
       const value = [location.search_query, location.formatted_query, location.latitude, location.longitude];
-
       client
         .query(sql, value)
         .then(response.status(200).send(location))
         .catch(error => handleError(error, response));
     })
-      .catch(err => handleError(err, response));
+    .catch(err => handleError(err, response));
 }
 
 function Location(searchQuery, formatted_address, lat, long) {
   this.search_query = searchQuery;
-  this.formatted_address = formatted_address;
+  this.formatted_query = formatted_address;
   this.latitude = lat;
   this.longitude = long;
 }
