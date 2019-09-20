@@ -1,23 +1,96 @@
 'use strict';
 
-// ================= Server =================
+/**
+ * Dependencies
+ */
+
 const express = require('express');
 const cors = require('cors');
-const pg = require('pg');
-const superAgent = require('superagent');
-
-require('dotenv').config();
-
 const app = express();
+const superagent = require('superagent');
+const pg = require('pg');
+require('dotenv').config();
+const PORT = process.env.PORT || 3000;
 app.use(cors());
 
-const PORT = process.env.PORT || 3000
-
-// ================= Connect with Database =================
 const client = new pg.Client(process.env.DATABASE_URL);
-client.connect();
+client.on('error', err => console.error(err));
+client.connect()
+  .then(() => {
+    app.listen(PORT, () => console.log(`listening on ${PORT}`));
+  })
+  .catch(error => handleError(error));
 
-// ================= Constructor Funcitons =================
+/**
+ * Routes
+ */
+
+app.get('/location', routeLocation);
+app.get('/weather', getWeather);
+app.get('/events', getEvents);
+app.use('*', wildcardRouter);
+
+/**
+ * Routers
+ */
+
+function routeLocation(request, response) {
+  let queryStr = request.query.data;
+
+  const location = locationFromDb(queryStr);
+  if (!location) {
+    location = newLocation(queryStr);
+  }
+  response.status(200).send(location);
+}
+
+function locationFromDb(queryStr, response) {
+  let sql = 'SELECT * FROM locations WHERE search_query = $1;';
+  queryStr = queryStr.toUpperCase();
+  let values = [queryStr];
+  console.log('Sql: ', sql);
+  console.log('Values: ', values);
+  client
+    .query(sql, values)
+    .then(pgResults => {
+
+      console.log('===========================');
+      console.log('Row Count', pgResults.rowCount);
+      if (pgResults.rowCount !== 0) {
+        console.log('first row:', pgResults.row[0]);
+      };
+
+      if (pgResults.rowCount === 0) {
+        return;
+      } else {
+        const row = pgResults.row[0];
+        return new Location(row.search_query, row.formatted_query, row.latitude row.longitude);
+      }
+
+    })
+    .catch(err => handleError(err, response));
+}
+
+function newLocation(searchQuery, response) {
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${searchQuery}&key=${process.env.GEOCODE_API_KEY}`;
+
+  superagent
+    .get(url)
+    .then(result => {
+      const locationData = result.body.results[0];
+      const location = new Location(searchQuery, locationData);
+
+      const sql = 'INSERT INTO locations (search_query, formatted_query, latitude, longitude) VALUES ($1, $2, $3, $4);';
+      const value = [location.search_query, location.formatted_query, location.latitude, location.longitude];
+
+      client
+        .query(sql, value)
+        .then(response.status(200).send(location))
+        .catch(error => handleError(error, response));
+    })
+      .catch(err => handleError(err, response));
+}
+
 function Location(searchQuery, formatted_address, lat, long) {
   this.search_query = searchQuery;
   this.formatted_address = formatted_address;
@@ -25,81 +98,85 @@ function Location(searchQuery, formatted_address, lat, long) {
   this.longitude = long;
 }
 
-function Forecast(summary, time) {
-  this.forecast = summary;
-  this.time = new Date(time *1000).toDateString();
+// function Location(searchQuery, locationData) {
+//   this.search_query = searchQuery;
+//   this.formatted_query = locationData.formatted_address;
+//   this.latitude = locationData.geometry.location.lat;
+//   this.longitude = locationData.geometry.location.lng;
+// }
+
+function getWeather(request, response) {
+  const searchQuery = request.query.data;
+  const latitude = searchQuery.latitude;
+  const longitude = searchQuery.longitude;
+  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${latitude},${longitude}`;
+
+  superagent.get(url)
+    .then(data => {
+      const body = data.body;
+      const forecast = new Forecast(searchQuery, body);
+
+      response.status(200).send(forecast.days);
+    })
+    .catch(err => handleError(err, response));
 }
 
-function Event(eventBriteStuff) {
-  this.link = eventBriteStuff.url;
-  this.name = eventBriteStuff.name.text;
-  this.event_date = new Date(eventBriteStuff.local).toDateString();
-  this.summary = eventBriteStuff.summary;
+function Forecast(searchQuery, weatherDataResults) {
+  const result = weatherDataResults.daily.data.map(day => {
+    const obj = {};
+    obj.forecast = day.summary;
+
+    const date = new Date(0);
+    date.setUTCSeconds(day.time);
+    obj.time = date.toDateString();
+
+    return obj;
+  });
+
+  this.days = result;
 }
 
-// ================= Get Data From APIs =================
-// ================= Location =================
-app.get('/location', (request, response) => {
-  let searchQuery = request.query.data;
-  let geocodeurl = `https://maps.googleapis.com/maps/api/geocode/json?address=${searchQuery}&key=${process.env.GEOCODE_API_KEY}`;
+function getEvents(request, response) {
+  const searchQuery = request.query.data;
+  const latitude = searchQuery.latitude;
+  const longitude = searchQuery.longitude;
+  const url = `https://www.eventbriteapi.com/v3/events/search?location.longitude=${longitude}&location.latitude=${latitude}74&expand=venue&token=${process.env.EVENTBRITE_PUBLIC_TOKEN}`;
 
-  superAgent.get(geocodeurl)
-    .then(responsefromAgent => {
-      const formatted_address = responsefromAgent.body.results[0].formatted_address;
-      const lat = responsefromAgent.body.results[0].geometry.location.lat;
-      const long = responsefromAgent.body.results[0].geometry.location.lng;
-
-      const newLocation = new Location(searchQuery, formatted_address, lat, long)
-
-      let sql = `INSERT INTO location (search_query, formatted_address, latitude, longitude) VALUES ($1, $2, $3, $4);`;
-      let value = [newLocation.search_query, newLocation.formatted_address, lat, long];
-      client.query(sql, value)
-      response.send(newLocation);
+  superagent.get(url)
+    .then(data => {
+      const events = data.body.events.map(obj => new Event(obj));
+      response.status(200).send(events);
     })
-    .catch(error => {
-      errorHandler(error, request, response);
-    });
-});
-
-// ================= Weather =================
-app.get('/weather', (request, response) => {
-  let locationDataObj = request.query.data;
-  let latitude = locationDataObj.latitude;
-  let longitude = locationDataObj.longitude;
-  let URL = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${latitude},${longitude}`;
-
-  superAgent.get(URL)
-    .then(dataFromWeather => {
-      let weatherDataResults = dataFromWeather.body.daily.data;
-      const dailyArray = weatherDataResults.map(day => new Forecast(day.summary, day.time));
-
-      response.send(dailyArray);
-    })
-    .catch(error => {
-      errorHandler(error, request, response);
-    });
-});
-
-// ================= EventBrite =================
-app.get('/events', (request, response) => {
-  let locationObj = request.query.data;
-  const eventUrl = `http://www.eventbriteapi.com/v3/events/search?token=${process.env.EVENTBRITE_API_KEY}&location.address=${locationObj.formatted_address}`;
-
-  superAgent.get(eventUrl)
-    .then(eventBriteData => {
-      const eventBriteInfo = eventBriteData.body.events.map(eventData => new Event(eventData));
-
-      response.send(eventBriteInfo);
-    })
-    .catch(error => {
-      errorHandler(error, request, response);
-    });
-});
-
-// ================= Error Handler =================
-function errorHandler(error, request, response){
-  console.error(error);
-  response.status(500).send('Something went wrong');
+    .catch(err => handleError(err, response));
 }
 
-app.listen(PORT, () => {console.log(`listening on port ${PORT}`)});
+function Event(obj) {
+  this.link = obj.url;
+  this.name = obj.name.text;
+  this.event_date = obj.start.local;
+  this.summary = obj.summary;
+}
+
+function wildcardRouter(request, response) {
+  response.status(500).send('Sorry, something went wrong');
+}
+
+/**
+ * Helper Objects and Functions
+ */
+
+function Error(err) {
+  this.status = 500;
+  this.responseText = 'Sorry, something went wrong. ' + JSON.stringify(err);
+  this.error = err;
+}
+
+function handleError(err, response) {
+  console.log('ERRORE MESSAGE TO FOLOOOWWWWW');
+  console.error(err);
+  console.log('ERRORE MESSAGE ENDDDDSSSSS');
+  const error = new Error(err);
+  if (response) {
+    response.status(error.status).send(error.responseText);
+  }
+}
