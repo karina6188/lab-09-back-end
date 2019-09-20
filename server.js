@@ -35,7 +35,7 @@ function Event(eventBriteStuff) {
   this.summary = eventBriteStuff.summary;
 }
 
-// get data from APIs--- -------------------------------------------------------------------------------
+// ======== Get Data From APIs ===================
 app.get('/location', (request, response) => {
   let searchQuery = request.query.data;
   let geocodeurl = `https://maps.googleapis.com/maps/api/geocode/json?address=${searchQuery}&key=${process.env.GEOCODE_API_KEY}`;
@@ -49,7 +49,7 @@ app.get('/location', (request, response) => {
       const newLocation = new Location(searchQuery, formatted_address, lat, long)
 
       let sql = `INSERT INTO location (search_query, formatted_address, latitude, longitude) VALUES ($1, $2, $3, $4);`;
-      let value = [newLocation.search_query, newLocation.formatted_address, newLocation.lat, newLocation.long];
+      let value = [newLocation.search_query, newLocation.formatted_address, lat, long];
       client.query(sql, value)
       response.send(newLocation);
     })
