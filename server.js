@@ -20,7 +20,7 @@ client.on('error', (error) => console.log(error));
 
 app.get('/location', getLocation);
 app.get('/weather', getWeather);
-app.get('/events', getEvents)
+app.get('/events', getEvents);
 
 // =========================
 
@@ -72,17 +72,20 @@ function getWeather(request, response) {
   });
 }
 function getEvents(request, response) {
+  console.log('hitting getEvents')
   let long = request.query.data.longitude;
   // console.log('longitude: ',long)
   let lat = request.query.data.latitude;
   // console.log('latitude: ',lat)
 
 
-  let url = `https://www.eventbriteapi.com/v3/events/search?location.longitude=${long}&location.latitude=${lat}&token=${process.env.EVENTS_API_KEY}`;
+  let url = `https://www.eventbriteapi.com/v3/events/search?location.longitude=${long}&location.latitude=${lat}&token=${process.env.EVENTBRITE_API_KEY}`;
+  // console.log('events api url is:\n', url)
 
   superagent.get(url).then(superEventResults => {
-    console.log('inside events superagent')
-    console.log(superEventResults.body)
+    // console.log('inside events superagent, results: \n', superEventResults)
+    // console.log(superEventResults)
+
 
     const eventBriteinfo = superEventResults.body.events.map(eventData => {
       const event = new Event(eventData);
