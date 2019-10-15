@@ -27,7 +27,7 @@ client.connect()
 
 app.get('/location', routeLocation);
 // app.get('/weather', getWeather);
-app.get('/events', getEvents);
+// app.get('/events', getEvents);
 // app.use('*', wildcardRouter);
 
 /**
@@ -38,9 +38,9 @@ function routeLocation(request, response) {
   let queryStr = request.query.data;
 
   locationFromDb(queryStr, response);
-//   if (!location) {
-//     location = newLocation(queryStr);
-//   }
+  //   if (!location) {
+  //     location = newLocation(queryStr);
+  //   }
   // response.status(200).send(location);
 
 }
@@ -112,28 +112,65 @@ function Location(searchQuery, formatted_address, lat, long) {
   this.longitude = long;
 }
 
-// function Location(searchQuery, locationData) {
-//   this.search_query = searchQuery;
-//   this.formatted_query = locationData.formatted_address;
-//   this.latitude = locationData.geometry.location.lat;
-//   this.longitude = locationData.geometry.location.lng;
-// }
+
+
+function weatherFromDB(queryStr, response){
+
+  let sql = 'SELECT * FROM weather WHERE search_query = $1;';
+  queryStr = queryStr.toUpperCase();
+  let values = [queryStr];
+  console.log('Sql: ', sql);
+  console.log('Values: ', values);
+  client
+    .query(sql, values)
+    .then(pgResults => {
+      if (pgResults.rowCount === 0) {
+        console.log('new search')
+        getWeather(queryStr, response)
+      } else {
+        console.log('already exists')
+        console.log('table results', pgResults.rows)
+
+
+        // const row = pgResults.rows[0];
+
+
+
+        // //fill in new Location instantiation from database query, then send to front end
+        // const location = new Location(row.searchQuery, row.formatted_query, row.latitude, row.longitude)
+        // response.send(location)
+      }
+    })
+}
+
 
 function getWeather(request, response) {
-  const searchQuery = request.query.data;
-  const latitude = searchQuery.latitude;
-  const longitude = searchQuery.longitude;
+  const data = request.query.data;
+  const searchQuery = data.search_query;
+  const latitude = data.latitude;
+  const longitude = data.longitude;
   const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${latitude},${longitude}`;
+
 
   superagent.get(url)
     .then(data => {
       const body = data.body;
       const forecast = new Forecast(searchQuery, body);
-
       response.status(200).send(forecast.days);
+      // console.log(forecast.days)
+
+      for(let i = 0; i<forecast.days.length; i++){
+        const sql = 'INSERT INTO weather (search_query, forecast_summary, forecast_time) VALUES ($1, $2, $3);';
+        const values = [searchQuery, forecast.days[i].forecast, forecast.days[i].time]
+
+        client.query(sql, values)
+          .catch(err => handleError(err, response));
+      }
+
     })
     .catch(err => handleError(err, response));
 }
+
 
 function Forecast(searchQuery, weatherDataResults) {
   const result = weatherDataResults.daily.data.map(day => {
