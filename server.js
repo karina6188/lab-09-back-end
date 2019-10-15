@@ -26,9 +26,9 @@ client.connect()
  */
 
 app.get('/location', routeLocation);
-// app.get('/weather', getWeather);
-// app.get('/events', getEvents);
-// app.use('*', wildcardRouter);
+app.get('/weather', getWeather);
+app.get('/events', getEvents);
+app.use('*', wildcardRouter);
 
 /**
  * Routers
